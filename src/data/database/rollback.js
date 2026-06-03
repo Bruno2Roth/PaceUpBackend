@@ -1,4 +1,4 @@
-import { dbPool } from '../configs/database.js';
+import { dbPool } from '../../configs/database.js';
 
 async function rollbackMigrations() {
   try {

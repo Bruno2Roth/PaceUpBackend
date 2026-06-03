@@ -205,6 +205,100 @@ Content-Type: application/json
 }
 ```
 
+## 🏃 Activity API
+
+### Create manual activity
+```bash
+POST /api/v1/activities
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "title": "Morning run",
+  "description": "Easy recovery run",
+  "activity_type": "running",
+  "distance_m": 5000,
+  "duration_seconds": 1500,
+  "start_time": "2026-06-03T06:00:00Z",
+  "end_time": "2026-06-03T06:25:00Z",
+  "gps_data": [
+    { "latitude": 40.7128, "longitude": -74.0060, "timestamp": "2026-06-03T06:00:00Z" },
+    { "latitude": 40.7138, "longitude": -74.0050, "timestamp": "2026-06-03T06:10:00Z" },
+    { "latitude": 40.7148, "longitude": -74.0040, "timestamp": "2026-06-03T06:20:00Z" }
+  ]
+}
+```
+
+### Import activities from Garmin / watch data
+```bash
+POST /api/v1/activities/import
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "activities": [
+    {
+      "title": "Garmin hill repeats",
+      "description": "Sync from my watch",
+      "activity_type": "running",
+      "distance_m": 8000,
+      "duration_seconds": 2400,
+      "start_time": "2026-06-03T07:00:00Z",
+      "end_time": "2026-06-03T07:40:00Z",
+      "gps_data": [
+        { "latitude": 40.7128, "longitude": -74.0060, "timestamp": "2026-06-03T07:00:00Z" },
+        { "latitude": 40.7228, "longitude": -74.0065, "timestamp": "2026-06-03T07:20:00Z" },
+        { "latitude": 40.7328, "longitude": -74.0070, "timestamp": "2026-06-03T07:40:00Z" }
+      ]
+    }
+  ]
+}
+```
+
+### Alias sync endpoint
+```bash
+POST /api/v1/activities/sync
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+{
+  "activities": [ ... ]
+}
+```
+
+### Get activity list
+```bash
+GET /api/v1/activities?limit=20&offset=0
+```
+
+### Get a single activity
+```bash
+GET /api/v1/activities/:id
+```
+
+### Update activity
+```bash
+PUT /api/v1/activities/:id
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "title": "Updated title",
+  "distance_m": 5200
+}
+```
+
+### Delete activity
+```bash
+DELETE /api/v1/activities/:id
+Authorization: Bearer <accessToken>
+```
+
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123"
+}
+```
+
 Response:
 ```json
 {

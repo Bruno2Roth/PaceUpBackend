@@ -1,35 +1,37 @@
 import { body } from 'express-validator';
 
-export const activityValidation = [
-  body('title').optional().isString(),
-  body('activity_type')
+export const activityImportValidation = [
+  body('activities')
+    .isArray({ min: 1 })
+    .withMessage('activities must be a non-empty array'),
+  body('activities.*.activity_type')
     .isIn(['running', 'trail_running', 'treadmill'])
     .withMessage('Invalid activity type'),
-  body('distance_m')
+  body('activities.*.distance_m')
     .isFloat({ gt: 0 })
     .withMessage('Distance must be > 0'),
-  body('duration_seconds')
+  body('activities.*.duration_seconds')
     .isInt({ gt: 0 })
     .withMessage('Duration must be > 0'),
-  body('start_time')
+  body('activities.*.start_time')
     .isISO8601()
     .withMessage('Invalid start time'),
-  body('end_time')
+  body('activities.*.end_time')
     .isISO8601()
     .withMessage('Invalid end time'),
-  body('gps_data').optional().isArray(),
-  body('gps_data.*.latitude')
+  body('activities.*.gps_data').optional().isArray(),
+  body('activities.*.gps_data.*.latitude')
     .optional()
     .isFloat({ min: -90, max: 90 })
     .withMessage('Invalid GPS latitude'),
-  body('gps_data.*.longitude')
+  body('activities.*.gps_data.*.longitude')
     .optional()
     .isFloat({ min: -180, max: 180 })
     .withMessage('Invalid GPS longitude'),
-  body('gps_data.*.timestamp')
+  body('activities.*.gps_data.*.timestamp')
     .optional()
     .isISO8601()
     .withMessage('Invalid GPS timestamp'),
 ];
 
-export default activityValidation;
+export default activityImportValidation;

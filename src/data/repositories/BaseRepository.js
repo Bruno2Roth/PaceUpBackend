@@ -31,9 +31,9 @@ export class BaseRepository {
     return result.rows[0];
   }
 
-  async findMany(whereClause, params = []) {
-    const query = `SELECT * FROM ${this.tableName} WHERE ${whereClause}`;
-    const result = await this.pool.query(query, params);
+  async findMany(whereClause, params = [], limit = 20, offset = 0) {
+    const query = `SELECT * FROM ${this.tableName} WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const result = await this.pool.query(query, [...params, limit, offset]);
     return result.rows;
   }
 
