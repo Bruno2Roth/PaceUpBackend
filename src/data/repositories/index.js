@@ -1,0 +1,12 @@
+export { default as BaseRepository } from './BaseRepository.js';
+export { default as UserRepository } from './UserRepository.js';
+export { default as ActivityRepository } from './ActivityRepository.js';
+export { default as ClubRepository } from './ClubRepository.js';
+export { default as ChallengeRepository } from './ChallengeRepository.js';
+export { default as RouteRepository } from './RouteRepository.js';
+export { default as SegmentRepository } from './SegmentRepository.js';
+export { default as FollowerRepository } from './FollowerRepository.js';
+export { default as CommentRepository } from './CommentRepository.js';
+export { default as LikeRepository } from './LikeRepository.js';
+export { default as AchievementRepository } from './AchievementRepository.js';
+export { default as NotificationRepository } from './NotificationRepository.js';

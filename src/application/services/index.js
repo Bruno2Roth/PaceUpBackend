@@ -1,0 +1,10 @@
+export { default as AuthService } from './AuthService.js';
+export { default as UserService } from './UserService.js';
+export { default as ActivityService } from './ActivityService.js';
+export { default as GPSService } from './GPSService.js';
+export { default as ClubService } from './ClubService.js';
+export { default as ChallengeService } from './ChallengeService.js';
+export { default as RankingService } from './RankingService.js';
+export { default as TrainingService } from './TrainingService.js';
+export { default as AIService } from './AIService.js';
+export { default as NotificationService } from './NotificationService.js';
