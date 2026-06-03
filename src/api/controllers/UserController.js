@@ -7,10 +7,14 @@ export class UserController {
 
   async getProfile(req, res, next) {
     try {
-      // TODO: Implement get profile controller
-      // - Get user ID from JWT token
-      // - Call userService.getUserProfile()
-      res.status(501).json({ error: 'Not implemented' });
+      const userId = req.userId;
+      const userRepo = this.userService.userRepository;
+      const user = await userRepo.findNonDeletedById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      delete user.password;
+      return res.status(200).json({ user });
     } catch (error) {
       next(error);
     }

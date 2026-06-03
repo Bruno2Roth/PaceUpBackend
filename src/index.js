@@ -7,7 +7,7 @@ import initSockets from './sockets/index.js';
 
 const start = async () => {
   try {
-    const app = createApp();
+    const app = await createApp();
     const server = http.createServer(app);
 
     // Initialize DB pool

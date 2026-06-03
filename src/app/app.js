@@ -1,5 +1,4 @@
 import express from 'express';
-import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
 import { json, urlencoded } from 'express';
@@ -9,12 +8,20 @@ import { rateLimitMiddleware } from '../api/middlewares/rateLimitMiddleware.js';
 import { notFoundMiddleware, errorMiddleware } from '../api/middlewares/index.js';
 import apiRoutes from '../routes/index.js';
 
-const createApp = () => {
+const createApp = async () => {
   const app = express();
 
-  app.set('trust proxy', 1);
+  // Dynamic import for optional middlewares (graceful if not installed)
+  try {
+    const helmetModule = await import('helmet');
+    const helmet = helmetModule?.default || helmetModule;
+    app.use(helmet());
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Optional dependency "helmet" not found. Continuing without helmet. Run `npm install` to add it.');
+  }
 
-  app.use(helmet());
+  app.set('trust proxy', 1);
 
   app.use(
     cors({

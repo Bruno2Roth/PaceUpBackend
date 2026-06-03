@@ -483,3 +483,69 @@ Pace Up Development Team
 ---
 
 **Built with ❤️ for the running community**
+
+## 🧾 Postman / API Examples
+
+Below are example requests you can paste into Postman (or use curl). Replace `{{API_URL}}` with `http://localhost:3000/api/v1`.
+
+1) Register (POST /auth/register)
+
+POST {{API_URL}}/auth/register
+Body (JSON):
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123",
+  "name": "John Doe"
+}
+
+Expected Response (201):
+{
+  "user": { "id": "uuid", "email": "user@example.com", "name": "John Doe", ... },
+  "accessToken": "<jwt>",
+  "refreshToken": "<jwt>"
+}
+
+2) Login (POST /auth/login)
+
+POST {{API_URL}}/auth/login
+Body (JSON):
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123"
+}
+
+Expected Response (200):
+{
+  "user": { "id": "uuid", "email": "user@example.com", "name": "John Doe", ... },
+  "accessToken": "<jwt>",
+  "refreshToken": "<jwt>"
+}
+
+3) Get Profile (GET /users/profile)
+
+GET {{API_URL}}/users/profile
+Headers:
+  Authorization: Bearer <accessToken>
+
+Expected Response (200):
+{
+  "user": { "id": "uuid", "email": "user@example.com", "name": "John Doe", ... }
+}
+
+4) Refresh Token (POST /auth/refresh)
+
+POST {{API_URL}}/auth/refresh
+Body (JSON):
+{
+  "refreshToken": "<refreshToken>"
+}
+
+Expected Response (200):
+{
+  "accessToken": "<new_access_token>"
+}
+
+Notes:
+- If you get `Invalid credentials` ensure the database has the user created via `/auth/register`.
+- Migrations must be run before using endpoints: `npm run migrate`.
+- For testing quickly with Postman, add an environment variable `API_URL`.
