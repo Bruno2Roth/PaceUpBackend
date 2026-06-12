@@ -1,51 +1,69 @@
+import RankingRepository from '../../data/repositories/RankingRepository.js';
+
 export class RankingService {
   constructor() {
-    // Service for calculating and managing rankings
+    this.rankingRepository = new RankingRepository();
   }
 
-  async getGlobalRankings(activityType = null, limit = 100, offset = 0) {
-    // TODO: Get global rankings
-    // - By total distance
-    // - By activity count
-    // - By total duration
-    throw new Error('RankingService.getGlobalRankings not implemented');
+  async getGlobalRankings(criteria = 'distance', activityType = null, limit = 100, offset = 0) {
+    return this.rankingRepository.getGlobalRankings(criteria, activityType, limit, offset);
   }
 
   async getUserRank(userId, criteria = 'distance') {
-    // TODO: Get user rank by criteria
-    throw new Error('RankingService.getUserRank not implemented');
+    return this.rankingRepository.getUserRank(userId, criteria);
   }
 
-  async getSegmentLeaderboard(segmentId, limit = 100) {
-    // TODO: Get segment leaderboard
-    // - Best time on segment
-    throw new Error('RankingService.getSegmentLeaderboard not implemented');
+  async getClubRankings(clubId, criteria = 'distance', limit = 100) {
+    return this.rankingRepository.getClubRankings(clubId, criteria, limit);
   }
 
-  async getRouteLeaderboard(routeId, limit = 100) {
-    // TODO: Get route leaderboard
-    throw new Error('RankingService.getRouteLeaderboard not implemented');
+  async getMonthlyRankings(year, month, criteria = 'distance', limit = 100) {
+    return this.rankingRepository.getMonthlyRankings(year, month, criteria, limit);
   }
 
-  async getClubRankings(clubId, limit = 100) {
-    // TODO: Get club member rankings
-    throw new Error('RankingService.getClubRankings not implemented');
+  async getYearlyRankings(year, criteria = 'distance', limit = 100) {
+    return this.rankingRepository.getYearlyRankings(year, criteria, limit);
+  }
+
+  async getWeeklyRankings(criteria = 'distance', limit = 100) {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - dayOfWeek);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    return this.rankingRepository.getMonthlyRankings(
+      startOfWeek.getFullYear(),
+      startOfWeek.getMonth() + 1,
+      criteria,
+      limit,
+    );
   }
 
   async calculateMonthlyRankings() {
-    // TODO: Calculate and cache monthly rankings
-    // - Run as background job
-    throw new Error('RankingService.calculateMonthlyRankings not implemented');
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    return this.rankingRepository.getMonthlyRankings(year, month, 'distance', 100);
   }
 
-  async getMonthlyRankings(limit = 100) {
-    // TODO: Get cached monthly rankings
-    throw new Error('RankingService.getMonthlyRankings not implemented');
-  }
+  async getLeaderboard(criteria = 'distance', period = 'all', limit = 100, offset = 0) {
+    const now = new Date();
 
-  async getYearlyRankings(year, limit = 100) {
-    // TODO: Get yearly rankings
-    throw new Error('RankingService.getYearlyRankings not implemented');
+    switch (period) {
+      case 'weekly': {
+        return this.getWeeklyRankings(criteria, limit);
+      }
+      case 'monthly': {
+        return this.getMonthlyRankings(now.getFullYear(), now.getMonth() + 1, criteria, limit);
+      }
+      case 'yearly': {
+        return this.getYearlyRankings(now.getFullYear(), criteria, limit);
+      }
+      default: {
+        return this.getGlobalRankings(criteria, null, limit, offset);
+      }
+    }
   }
 }
 

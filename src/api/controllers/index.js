@@ -4,3 +4,6 @@ export { default as ActivityController } from './ActivityController.js';
 export { default as ClubController } from './ClubController.js';
 export { default as ChallengeController } from './ChallengeController.js';
 export { default as RouteController } from './RouteController.js';
+export { default as RankingController } from './RankingController.js';
+export { default as XpController } from './XpController.js';
+export { default as AchievementController } from './AchievementController.js';

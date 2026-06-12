@@ -10,3 +10,6 @@ export { default as CommentRepository } from './CommentRepository.js';
 export { default as LikeRepository } from './LikeRepository.js';
 export { default as AchievementRepository } from './AchievementRepository.js';
 export { default as NotificationRepository } from './NotificationRepository.js';
+export { default as XpEventRepository } from './XpEventRepository.js';
+export { default as XpHistoryRepository } from './XpHistoryRepository.js';
+export { default as ClubInvitationRepository } from './ClubInvitationRepository.js';

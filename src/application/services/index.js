@@ -8,3 +8,5 @@ export { default as RankingService } from './RankingService.js';
 export { default as TrainingService } from './TrainingService.js';
 export { default as AIService } from './AIService.js';
 export { default as NotificationService } from './NotificationService.js';
+export { default as XpService } from './XpService.js';
+export { default as AchievementService } from './AchievementService.js';

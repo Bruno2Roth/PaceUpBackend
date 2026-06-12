@@ -62,13 +62,17 @@ export class NotificationRepository extends BaseRepository {
     return parseInt(result.rows[0].count, 10);
   }
 
-  async createNotification({ userId, type, title, message, actorId, metadata, activityId, commentId }) {
+  async createNotification({ userId, type, title, message, actorId, metadata, activityId, commentId, challengeId, clubId }) {
     const query = `
-      INSERT INTO notifications (user_id, type, title, message, actor_id, metadata, activity_id, comment_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO notifications (user_id, type, title, message, actor_id, metadata, activity_id, comment_id, challenge_id, club_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
-    const result = await this.pool.query(query, [userId, type, title, message, actorId, metadata || {}, activityId, commentId]);
+    const result = await this.pool.query(query, [
+      userId, type, title, message, actorId, metadata || {},
+      activityId || null, commentId || null,
+      challengeId || null, clubId || null,
+    ]);
     return result.rows[0];
   }
 

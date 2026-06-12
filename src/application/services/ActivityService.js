@@ -3,6 +3,9 @@ import CommentRepository from '../../data/repositories/CommentRepository.js';
 import LikeRepository from '../../data/repositories/LikeRepository.js';
 import GPSService from './GPSService.js';
 import NotificationService from './NotificationService.js';
+import XpService from './XpService.js';
+import AchievementService from './AchievementService.js';
+import ChallengeService from './ChallengeService.js';
 import redis from '../../configs/redis.js';
 import { emitFeedUpdate } from '../../sockets/emitter.js';
 
@@ -16,16 +19,37 @@ export class ActivityService {
     this.likeRepository = new LikeRepository();
     this.gpsService = new GPSService();
     this.notificationService = new NotificationService();
+    this.xpService = new XpService();
+    this.achievementService = new AchievementService();
+    this.challengeService = new ChallengeService();
   }
 
   async createActivity(userId, activityData) {
     const payload = this.buildActivityPayload(userId, activityData);
     const activity = await this.activityRepository.create(payload);
 
+    await this.xpService.awardXp(userId, 'activity_completed', { activityId: activity.id });
+
+    if (userId) {
+      const totalActivities = await this.activityRepository.count('user_id = $1 AND deleted_at IS NULL', [userId]);
+      if (totalActivities === 1) {
+        await this.xpService.awardXp(userId, 'first_activity', { activityId: activity.id });
+      }
+    }
+
+    const achievements = await this.achievementService.evaluateAndAward(userId, activity);
+
+    if (activity.club_id) {
+      const activeChallenges = await this.challengeService.getChallengesByClub(activity.club_id);
+      for (const challenge of activeChallenges) {
+        await this.challengeService.updateParticipantProgress(challenge.id, userId, activity);
+      }
+    }
+
     const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
     await redis.delete(feedKey);
 
-    return activity;
+    return { activity, achievements };
   }
 
   async importActivities(userId, activities) {
@@ -40,6 +64,10 @@ export class ActivityService {
       const payload = this.buildActivityPayload(userId, activityData);
       const activity = await this.activityRepository.create(payload);
       created.push(activity);
+    }
+
+    if (created.length > 0) {
+      await this.xpService.awardXp(userId, 'activity_completed', { activityId: created[0].id });
     }
 
     const feedKey = `${FEED_CACHE_PREFIX}${userId}`;

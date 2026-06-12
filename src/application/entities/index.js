@@ -6,3 +6,6 @@ export { default as Route } from './Route.js';
 export { default as Segment } from './Segment.js';
 export { default as Achievement } from './Achievement.js';
 export { default as Notification } from './Notification.js';
+export { default as XpEvent } from './XpEvent.js';
+export { default as XpHistory } from './XpHistory.js';
+export { default as ClubInvitation } from './ClubInvitation.js';

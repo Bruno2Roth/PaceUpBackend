@@ -8,7 +8,7 @@ export class NotificationService {
     this.userRepository = new UserRepository();
   }
 
-  async createNotification({ userId, type, title, message, actorId, metadata, activityId, commentId }) {
+  async createNotification({ userId, type, title, message, actorId, metadata, activityId, commentId, challengeId, clubId }) {
     const notification = await this.notificationRepository.createNotification({
       userId, type, title, message, actorId, metadata, activityId, commentId,
     });
@@ -82,6 +82,50 @@ export class NotificationService {
       actorId,
       activityId,
       commentId,
+    });
+  }
+
+  async notifyAchievement(userId, achievement) {
+    await this.createNotification({
+      userId,
+      type: 'achievement',
+      title: 'Nuevo logro',
+      message: `Has desbloqueado el logro: ${achievement.title}`,
+      metadata: { achievement_id: achievement.id, achievement_type: achievement.achievement_type },
+    });
+  }
+
+  async notifyChallengeCreated(userId, challenge) {
+    await this.createNotification({
+      userId,
+      type: 'challenge',
+      title: 'Nuevo desafío',
+      message: `Se ha creado un nuevo desafío: ${challenge.title}`,
+      metadata: { challenge_id: challenge.id },
+      challengeId: challenge.id,
+    });
+  }
+
+  async notifyRankingUpdate(userId, rankType) {
+    await this.createNotification({
+      userId,
+      type: 'ranking',
+      title: 'Nuevo ranking',
+      message: `Has subido en el ranking ${rankType}`,
+      metadata: { rank_type: rankType },
+    });
+  }
+
+  async notifyClubInvitation(userId, inviterId, club) {
+    const inviter = await this.userRepository.findNonDeletedById(inviterId);
+    await this.createNotification({
+      userId,
+      type: 'club_invitation',
+      title: 'Invitación a club',
+      message: `${inviter.name} te ha invitado a unirte al club "${club.name}"`,
+      actorId: inviterId,
+      metadata: { club_id: club.id, club_name: club.name },
+      clubId: club.id,
     });
   }
 
