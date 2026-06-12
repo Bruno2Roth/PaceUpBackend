@@ -1,4 +1,7 @@
 import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import config from '../configs/environment.js';
+import { setIO } from './emitter.js';
 
 export const initSockets = (server, options = {}) => {
   const io = new Server(server, {
@@ -8,8 +11,29 @@ export const initSockets = (server, options = {}) => {
     },
   });
 
+  setIO(io);
+
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    if (!token) {
+      return next(new Error('Authentication required'));
+    }
+    try {
+      const decoded = jwt.verify(token, config.jwt.secret);
+      socket.userId = decoded.userId;
+      socket.userRole = decoded.role;
+      next();
+    } catch {
+      next(new Error('Invalid token'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    console.log('Socket connected', socket.id);
+    const userId = socket.userId;
+    console.log(`Socket connected: user ${userId} (${socket.id})`);
+
+    socket.join(`user:${userId}`);
+    console.log(`User ${userId} joined room user:${userId}`);
 
     socket.on('joinRoom', (room) => {
       socket.join(room);
@@ -20,7 +44,7 @@ export const initSockets = (server, options = {}) => {
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected', socket.id);
+      console.log(`Socket disconnected: user ${userId} (${socket.id})`);
     });
   });
 

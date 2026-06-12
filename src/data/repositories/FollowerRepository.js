@@ -46,6 +46,12 @@ export class FollowerRepository extends BaseRepository {
     const result = await this.pool.query(query, [userId]);
     return parseInt(result.rows[0].count, 10);
   }
+
+  async deleteFollow(followerId, followingId) {
+    const query = 'DELETE FROM followers WHERE follower_id = $1 AND following_id = $2 RETURNING *';
+    const result = await this.pool.query(query, [followerId, followingId]);
+    return result.rows[0];
+  }
 }
 
 export default FollowerRepository;

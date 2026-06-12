@@ -2,6 +2,12 @@ import ActivityRepository from '../../data/repositories/ActivityRepository.js';
 import CommentRepository from '../../data/repositories/CommentRepository.js';
 import LikeRepository from '../../data/repositories/LikeRepository.js';
 import GPSService from './GPSService.js';
+import NotificationService from './NotificationService.js';
+import redis from '../../configs/redis.js';
+import { emitFeedUpdate } from '../../sockets/emitter.js';
+
+const FEED_CACHE_PREFIX = 'feed:';
+const FEED_CACHE_TTL = 60;
 
 export class ActivityService {
   constructor() {
@@ -9,11 +15,16 @@ export class ActivityService {
     this.commentRepository = new CommentRepository();
     this.likeRepository = new LikeRepository();
     this.gpsService = new GPSService();
+    this.notificationService = new NotificationService();
   }
 
   async createActivity(userId, activityData) {
     const payload = this.buildActivityPayload(userId, activityData);
     const activity = await this.activityRepository.create(payload);
+
+    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
+    await redis.delete(feedKey);
+
     return activity;
   }
 
@@ -30,6 +41,9 @@ export class ActivityService {
       const activity = await this.activityRepository.create(payload);
       created.push(activity);
     }
+
+    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
+    await redis.delete(feedKey);
 
     return created;
   }
@@ -59,14 +73,11 @@ export class ActivityService {
       if (!payload.distance_m) {
         payload.distance_m = this.gpsService.calculateDistance(activityData.gps_data);
       }
-
       if (!payload.duration_seconds && activityData.gps_data.length > 1) {
         const firstTimestamp = new Date(activityData.gps_data[0].timestamp).getTime();
         const lastTimestamp = new Date(activityData.gps_data[activityData.gps_data.length - 1].timestamp).getTime();
-        const durationMs = Math.max(lastTimestamp - firstTimestamp, 0);
-        payload.duration_seconds = Math.round(durationMs / 1000);
+        payload.duration_seconds = Math.round(Math.max(lastTimestamp - firstTimestamp, 0) / 1000);
       }
-
       const elevation = this.gpsService.calculateElevation(activityData.gps_data);
       payload.elevation_gain_m = elevation.elevation_gain_m;
       payload.elevation_loss_m = elevation.elevation_loss_m;
@@ -89,9 +100,7 @@ export class ActivityService {
   }
 
   calculateCalories(distanceMeters) {
-    if (!distanceMeters || distanceMeters <= 0) {
-      return null;
-    }
+    if (!distanceMeters || distanceMeters <= 0) return null;
     return Math.round((distanceMeters / 1000) * 60);
   }
 
@@ -109,26 +118,12 @@ export class ActivityService {
       throw err;
     }
 
-    let commentCount = 0;
-    let likeCount = 0;
+    const [commentCount, likeCount] = await Promise.all([
+      this.commentRepository.countByActivityId(activityId).catch(() => 0),
+      this.likeRepository.countByActivityId(activityId).catch(() => 0),
+    ]);
 
-    try {
-      commentCount = await this.commentRepository.countByActivityId(activityId);
-    } catch (error) {
-      commentCount = 0;
-    }
-
-    try {
-      likeCount = await this.likeRepository.countByActivityId(activityId);
-    } catch (error) {
-      likeCount = 0;
-    }
-
-    return {
-      ...activity,
-      comment_count: commentCount,
-      like_count: likeCount,
-    };
+    return { ...activity, comment_count: commentCount, like_count: likeCount };
   }
 
   async getActivities({ requesterId = null, userId = null, activityType = null, onlyMine = false, limit = 20, offset = 0 }) {
@@ -143,14 +138,12 @@ export class ActivityService {
       params.push(userId);
       clauses.push(`user_id = $${params.length}`);
     }
-
     if (activityType) {
       params.push(activityType);
       clauses.push(`activity_type = $${params.length}`);
     }
 
-    const whereClause = clauses.join(' AND ');
-    return this.activityRepository.findMany(whereClause, params, limit, offset);
+    return this.activityRepository.findMany(clauses.join(' AND '), params, limit, offset);
   }
 
   async updateActivity(activityId, userId, updateData) {
@@ -189,8 +182,7 @@ export class ActivityService {
       calories_burned: updateData.calories_burned !== undefined ? Number(updateData.calories_burned) : activity.calories_burned,
     };
 
-    const recalculated = this.buildActivityPayload(userId, payload);
-    return this.activityRepository.update(activityId, recalculated);
+    return this.activityRepository.update(activityId, this.buildActivityPayload(userId, payload));
   }
 
   async deleteActivity(activityId, userId) {
@@ -208,13 +200,26 @@ export class ActivityService {
     return this.activityRepository.softDelete(activityId);
   }
 
-  async getFollowingActivitiesFeed(userId, limit = 20, offset = 0) {
+  async getFollowingActivitiesFeed(userId, cursor = null, limit = 20) {
     if (!userId) {
       const err = new Error('Authentication required');
       err.status = 401;
       throw err;
     }
-    return this.activityRepository.findPublicActivitiesFromFollowing(userId, limit, offset);
+
+    const cacheKey = cursor ? null : `${FEED_CACHE_PREFIX}${userId}:page1`;
+    if (cacheKey) {
+      const cached = await redis.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    const activities = await this.activityRepository.getFeedWithCounts(userId, cursor, limit);
+
+    if (cacheKey && activities.length > 0) {
+      await redis.set(cacheKey, activities, FEED_CACHE_TTL);
+    }
+
+    return activities;
   }
 
   async getActivityStats(userId) {
@@ -224,6 +229,168 @@ export class ActivityService {
       throw err;
     }
     return this.activityRepository.getActivityStats(userId);
+  }
+
+  async likeActivity(activityId, userId) {
+    const activity = await this.activityRepository.findNonDeletedById(activityId);
+    if (!activity) {
+      const err = new Error('Activity not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const alreadyLiked = await this.likeRepository.isLiked(activityId, userId);
+    if (alreadyLiked) {
+      const err = new Error('Already liked this activity');
+      err.status = 409;
+      throw err;
+    }
+
+    const like = await this.likeRepository.create({ activity_id: activityId, user_id: userId });
+    const likeCount = await this.likeRepository.countByActivityId(activityId);
+
+    await this.notificationService.notifyLike(activity.user_id, activityId, userId);
+
+    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
+    await redis.delete(feedKey);
+
+    return { like, like_count: likeCount };
+  }
+
+  async unlikeActivity(activityId, userId) {
+    const activity = await this.activityRepository.findNonDeletedById(activityId);
+    if (!activity) {
+      const err = new Error('Activity not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const alreadyLiked = await this.likeRepository.isLiked(activityId, userId);
+    if (!alreadyLiked) {
+      const err = new Error('Not liked yet');
+      err.status = 404;
+      throw err;
+    }
+
+    await this.likeRepository.deleteLike(activityId, userId);
+    const likeCount = await this.likeRepository.countByActivityId(activityId);
+
+    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
+    await redis.delete(feedKey);
+
+    return { like_count: likeCount };
+  }
+
+  async getActivityLikes(activityId, limit = 20, offset = 0) {
+    const activity = await this.activityRepository.findNonDeletedById(activityId);
+    if (!activity) {
+      const err = new Error('Activity not found');
+      err.status = 404;
+      throw err;
+    }
+    return this.likeRepository.findByActivityId(activityId, limit, offset);
+  }
+
+  async commentOnActivity(activityId, userId, body, parentId = null) {
+    if (!body || body.trim().length === 0) {
+      const err = new Error('Comment body is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const sanitized = body.trim().substring(0, 2000);
+
+    const activity = await this.activityRepository.findNonDeletedById(activityId);
+    if (!activity) {
+      const err = new Error('Activity not found');
+      err.status = 404;
+      throw err;
+    }
+
+    if (parentId) {
+      const parentComment = await this.commentRepository.findNonDeletedById(parentId);
+      if (!parentComment || parentComment.activity_id !== Number(activityId)) {
+        const err = new Error('Parent comment not found');
+        err.status = 404;
+        throw err;
+      }
+    }
+
+    const comment = await this.commentRepository.create({
+      activity_id: activityId,
+      user_id: userId,
+      body: sanitized,
+      parent_id: parentId || null,
+    });
+
+    if (parentId) {
+      await this.commentRepository.incrementReplyCount(parentId);
+    }
+
+    const commentCount = await this.commentRepository.countByActivityId(activityId);
+
+    await this.notificationService.notifyComment(activity.user_id, activityId, userId, comment.id);
+
+    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
+    await redis.delete(feedKey);
+
+    return { comment, comment_count: commentCount };
+  }
+
+  async getActivityComments(activityId, limit = 20, offset = 0) {
+    const activity = await this.activityRepository.findNonDeletedById(activityId);
+    if (!activity) {
+      const err = new Error('Activity not found');
+      err.status = 404;
+      throw err;
+    }
+    return this.commentRepository.findByActivityId(activityId, limit, offset);
+  }
+
+  async getCommentReplies(commentId, limit = 20, offset = 0) {
+    const comment = await this.commentRepository.findNonDeletedById(commentId);
+    if (!comment) {
+      const err = new Error('Comment not found');
+      err.status = 404;
+      throw err;
+    }
+    return this.commentRepository.findReplies(commentId, limit, offset);
+  }
+
+  async updateComment(commentId, userId, body) {
+    const comment = await this.commentRepository.findNonDeletedById(commentId);
+    if (!comment) {
+      const err = new Error('Comment not found');
+      err.status = 404;
+      throw err;
+    }
+    if (comment.user_id !== userId) {
+      const err = new Error('Unauthorized');
+      err.status = 403;
+      throw err;
+    }
+    if (!body || body.trim().length === 0) {
+      const err = new Error('Comment body is required');
+      err.status = 400;
+      throw err;
+    }
+    const sanitized = body.trim().substring(0, 2000).replace(/<[^>]*>/g, '');
+    return this.commentRepository.updateComment(commentId, sanitized);
+  }
+
+  async deleteComment(commentId, userId) {
+    const comment = await this.commentRepository.findById(commentId);
+    if (!comment) {
+      const err = new Error('Comment not found');
+      err.status = 404;
+      throw err;
+    }
+    if (comment.user_id !== userId) {
+      const err = new Error('Unauthorized');
+      err.status = 403;
+      throw err;
+    }
+    return this.commentRepository.softDelete(commentId);
   }
 }
 

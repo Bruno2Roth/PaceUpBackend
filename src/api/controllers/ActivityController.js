@@ -12,7 +12,6 @@ export class ActivityController {
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-
       const activity = await this.activityService.createActivity(req.userId, req.body);
       return res.status(201).json({ activity });
     } catch (error) {
@@ -26,7 +25,6 @@ export class ActivityController {
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-
       const activities = await this.activityService.importActivities(req.userId, req.body.activities);
       return res.status(201).json({ imported: activities.length, activities });
     } catch (error) {
@@ -43,14 +41,8 @@ export class ActivityController {
       const onlyMine = req.query.mine === 'true' || req.query.mine === '1';
 
       const activities = await this.activityService.getActivities({
-        requesterId: req.userId,
-        userId,
-        activityType,
-        onlyMine,
-        limit,
-        offset,
+        requesterId: req.userId, userId, activityType, onlyMine, limit, offset,
       });
-
       return res.status(200).json({ activities });
     } catch (error) {
       next(error);
@@ -72,7 +64,6 @@ export class ActivityController {
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-
       const activity = await this.activityService.updateActivity(req.params.id, req.userId, req.body);
       return res.status(200).json({ activity });
     } catch (error) {
@@ -92,9 +83,10 @@ export class ActivityController {
   async getFollowingActivitiesFeed(req, res, next) {
     try {
       const limit = parseInt(req.query.limit, 10) || 20;
-      const offset = parseInt(req.query.offset, 10) || 0;
-      const activities = await this.activityService.getFollowingActivitiesFeed(req.userId, limit, offset);
-      return res.status(200).json({ activities });
+      const cursor = req.query.cursor || null;
+      const activities = await this.activityService.getFollowingActivitiesFeed(req.userId, cursor, limit);
+      const nextCursor = activities.length === limit ? activities[activities.length - 1].start_time : null;
+      return res.status(200).json({ activities, next_cursor: nextCursor });
     } catch (error) {
       next(error);
     }
@@ -102,7 +94,8 @@ export class ActivityController {
 
   async likeActivity(req, res, next) {
     try {
-      res.status(501).json({ error: 'Not implemented' });
+      const result = await this.activityService.likeActivity(req.params.id, req.userId);
+      return res.status(201).json(result);
     } catch (error) {
       next(error);
     }
@@ -110,7 +103,19 @@ export class ActivityController {
 
   async unlikeActivity(req, res, next) {
     try {
-      res.status(501).json({ error: 'Not implemented' });
+      const result = await this.activityService.unlikeActivity(req.params.id, req.userId);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getActivityLikes(req, res, next) {
+    try {
+      const limit = parseInt(req.query.limit, 10) || 20;
+      const offset = parseInt(req.query.offset, 10) || 0;
+      const users = await this.activityService.getActivityLikes(req.params.id, limit, offset);
+      return res.status(200).json({ users });
     } catch (error) {
       next(error);
     }
@@ -118,7 +123,9 @@ export class ActivityController {
 
   async commentOnActivity(req, res, next) {
     try {
-      res.status(501).json({ error: 'Not implemented' });
+      const parentId = req.body.parent_id || null;
+      const result = await this.activityService.commentOnActivity(req.params.id, req.userId, req.body.body, parentId);
+      return res.status(201).json(result);
     } catch (error) {
       next(error);
     }
@@ -126,7 +133,39 @@ export class ActivityController {
 
   async getActivityComments(req, res, next) {
     try {
-      res.status(501).json({ error: 'Not implemented' });
+      const limit = parseInt(req.query.limit, 10) || 20;
+      const offset = parseInt(req.query.offset, 10) || 0;
+      const comments = await this.activityService.getActivityComments(req.params.id, limit, offset);
+      return res.status(200).json({ comments });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getCommentReplies(req, res, next) {
+    try {
+      const limit = parseInt(req.query.limit, 10) || 20;
+      const offset = parseInt(req.query.offset, 10) || 0;
+      const replies = await this.activityService.getCommentReplies(req.params.id, limit, offset);
+      return res.status(200).json({ replies });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateComment(req, res, next) {
+    try {
+      const comment = await this.activityService.updateComment(req.params.commentId, req.userId, req.body.body);
+      return res.status(200).json({ comment });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteComment(req, res, next) {
+    try {
+      await this.activityService.deleteComment(req.params.commentId, req.userId);
+      return res.status(200).json({ message: 'Comment deleted' });
     } catch (error) {
       next(error);
     }

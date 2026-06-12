@@ -1,66 +1,112 @@
 import NotificationRepository from '../../data/repositories/NotificationRepository.js';
+import UserRepository from '../../data/repositories/UserRepository.js';
+import { emitNotification, emitNotificationCount } from '../../sockets/emitter.js';
 
 export class NotificationService {
   constructor() {
     this.notificationRepository = new NotificationRepository();
+    this.userRepository = new UserRepository();
   }
 
-  async createNotification(userId, notificationData) {
-    // TODO: Create notification
-    // - Validate data
-    // - Save to database
-    // - Emit Socket.io event if connected
-    throw new Error('NotificationService.createNotification not implemented');
+  async createNotification({ userId, type, title, message, actorId, metadata, activityId, commentId }) {
+    const notification = await this.notificationRepository.createNotification({
+      userId, type, title, message, actorId, metadata, activityId, commentId,
+    });
+
+    const actor = actorId ? await this.userRepository.findNonDeletedById(actorId) : null;
+    const enriched = {
+      ...notification,
+      actor_name: actor ? actor.name : '',
+      actor_avatar: actor ? actor.profile_picture_url : '',
+    };
+
+    emitNotification(userId, enriched);
+
+    const unreadCount = await this.notificationRepository.countUnread(userId);
+    emitNotificationCount(userId, unreadCount);
+
+    return notification;
   }
 
-  async getUserNotifications(userId, limit, offset) {
-    // TODO: Get user notifications
-    throw new Error('NotificationService.getUserNotifications not implemented');
+  async notifyFollow(targetUserId, actorId) {
+    if (targetUserId === actorId) return;
+
+    const hasSimilar = await this.notificationRepository.hasSimilarNotification(
+      targetUserId, 'follow', actorId, 24,
+    );
+    if (hasSimilar) return;
+
+    const actor = await this.userRepository.findNonDeletedById(actorId);
+    await this.createNotification({
+      userId: targetUserId,
+      type: 'follow',
+      title: 'Nuevo seguidor',
+      message: `${actor.name} empezó a seguirte`,
+      actorId,
+    });
   }
 
-  async getUnreadNotifications(userId) {
-    // TODO: Get unread notifications
-    throw new Error('NotificationService.getUnreadNotifications not implemented');
+  async notifyLike(activityOwnerId, activityId, actorId) {
+    if (activityOwnerId === actorId) return;
+
+    const hasSimilar = await this.notificationRepository.hasSimilarNotification(
+      activityOwnerId, 'like', actorId, 1,
+    );
+    if (hasSimilar) return;
+
+    const actor = await this.userRepository.findNonDeletedById(actorId);
+    await this.createNotification({
+      userId: activityOwnerId,
+      type: 'like',
+      title: 'Nuevo like',
+      message: `A ${actor.name} le gustó tu actividad`,
+      actorId,
+      activityId,
+    });
   }
 
-  async markAsRead(notificationId) {
-    // TODO: Mark notification as read
-    throw new Error('NotificationService.markAsRead not implemented');
+  async notifyComment(activityOwnerId, activityId, actorId, commentId) {
+    if (activityOwnerId === actorId) return;
+
+    const hasSimilar = await this.notificationRepository.hasSimilarNotification(
+      activityOwnerId, 'comment', actorId, 1,
+    );
+    if (hasSimilar) return;
+
+    const actor = await this.userRepository.findNonDeletedById(actorId);
+    await this.createNotification({
+      userId: activityOwnerId,
+      type: 'comment',
+      title: 'Nuevo comentario',
+      message: `${actor.name} comentó tu actividad`,
+      actorId,
+      activityId,
+      commentId,
+    });
+  }
+
+  async getUserNotifications(userId, limit = 20, offset = 0) {
+    return this.notificationRepository.findByUserId(userId, limit, offset);
+  }
+
+  async markAsRead(notificationId, userId) {
+    const notification = await this.notificationRepository.findById(notificationId);
+    if (!notification || notification.user_id !== userId) {
+      const err = new Error('Notification not found');
+      err.status = 404;
+      throw err;
+    }
+    return this.notificationRepository.markAsRead(notificationId);
   }
 
   async markAllAsRead(userId) {
-    // TODO: Mark all user notifications as read
-    throw new Error('NotificationService.markAllAsRead not implemented');
+    const result = await this.notificationRepository.markAllAsRead(userId);
+    emitNotificationCount(userId, 0);
+    return result;
   }
 
-  async deleteNotification(notificationId) {
-    // TODO: Delete notification
-    throw new Error('NotificationService.deleteNotification not implemented');
-  }
-
-  async notifyActivityLike(activityId, userId, likerUserId) {
-    // TODO: Notify user of activity like
-    throw new Error('NotificationService.notifyActivityLike not implemented');
-  }
-
-  async notifyComment(activityId, userId, commenterUserId) {
-    // TODO: Notify user of activity comment
-    throw new Error('NotificationService.notifyComment not implemented');
-  }
-
-  async notifyFollower(userId, followerUserId) {
-    // TODO: Notify user of new follower
-    throw new Error('NotificationService.notifyFollower not implemented');
-  }
-
-  async notifyChallengeInvite(userId, challengeId) {
-    // TODO: Notify user of challenge invite
-    throw new Error('NotificationService.notifyChallengeInvite not implemented');
-  }
-
-  async notifyAchievement(userId, achievementData) {
-    // TODO: Notify user of achievement
-    throw new Error('NotificationService.notifyAchievement not implemented');
+  async getUnreadCount(userId) {
+    return this.notificationRepository.countUnread(userId);
   }
 }
 

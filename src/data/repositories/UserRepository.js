@@ -7,8 +7,7 @@ export class UserRepository extends BaseRepository {
   }
 
   async findByEmail(email) {
-    const user = await this.findOne('email = $1', [email]);
-    return user;
+    return this.findOne('email = $1', [email]);
   }
 
   async findActiveUsers(limit = 20, offset = 0) {
@@ -46,12 +45,25 @@ export class UserRepository extends BaseRepository {
 
   async searchUsers(searchTerm, limit = 20, offset = 0) {
     const query = `
-      SELECT * FROM users
-      WHERE (name ILIKE $1 OR email ILIKE $1) AND deleted_at IS NULL
-      ORDER BY name ASC
-      LIMIT $2 OFFSET $3
+      SELECT id, name, username, profile_picture_url, bio, city, country
+      FROM users
+      WHERE deleted_at IS NULL
+        AND (
+          name ILIKE $1
+          OR username ILIKE $1
+          OR city ILIKE $1
+        )
+      ORDER BY
+        CASE
+          WHEN name ILIKE $2 THEN 0
+          WHEN username ILIKE $2 THEN 1
+          WHEN city ILIKE $1 THEN 2
+          ELSE 3
+        END,
+        name ASC
+      LIMIT $3 OFFSET $4
     `;
-    const result = await this.pool.query(query, [`%${searchTerm}%`, limit, offset]);
+    const result = await this.pool.query(query, [`%${searchTerm}%`, `${searchTerm}%`, limit, offset]);
     return result.rows;
   }
 
@@ -59,6 +71,26 @@ export class UserRepository extends BaseRepository {
     const query = 'SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL';
     const result = await this.pool.query(query, [id]);
     return result.rows[0];
+  }
+
+  async updateStreak(userId, currentStreak, maxStreak, lastActivityDate) {
+    const query = `
+      UPDATE users
+      SET current_streak = $2, max_streak = $3, last_activity_date = $4, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING id, current_streak, max_streak, last_activity_date
+    `;
+    const result = await this.pool.query(query, [userId, currentStreak, maxStreak, lastActivityDate]);
+    return result.rows[0];
+  }
+
+  async updatePersonalBests(userId, personalBests) {
+    const query = `
+      UPDATE users
+      SET personal_bests = $2::jsonb, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `;
+    await this.pool.query(query, [userId, JSON.stringify(personalBests)]);
   }
 }
 
