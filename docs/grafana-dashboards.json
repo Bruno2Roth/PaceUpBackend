@@ -1,0 +1,153 @@
+{
+  "api_dashboard": {
+    "title": "PaceUp API Dashboard",
+    "description": "API Performance, Errors, and Usage Metrics",
+    "panels": [
+      {
+        "title": "HTTP Requests Rate",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(http_requests_total[1m])", "legendFormat": "{{method}} {{path}}" }
+        ],
+        "description": "Requests per second by endpoint"
+      },
+      {
+        "title": "Request Latency (p99)",
+        "type": "heatmap",
+        "targets": [
+          { "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))", "legendFormat": "p99" }
+        ],
+        "description": "99th percentile request latency"
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(http_requests_total{status=~'5..'}[5m]) / rate(http_requests_total[5m]) * 100", "legendFormat": "Error %" }
+        ],
+        "description": "Error rate percentage"
+      },
+      {
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          { "expr": "active_users" }
+        ],
+        "description": "Currently active users"
+      },
+      {
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "targets": [
+          { "expr": "cache_hit_rate * 100" }
+        ],
+        "unit": "percent",
+        "description": "Cache hit rate percentage"
+      },
+      {
+        "title": "HTTP Status Breakdown",
+        "type": "pie",
+        "targets": [
+          { "expr": "sum by (status) (rate(http_requests_total[5m]))" }
+        ],
+        "description": "Response status distribution"
+      }
+    ]
+  },
+  "database_dashboard": {
+    "title": "PostgreSQL Dashboard",
+    "description": "Database performance and connection metrics",
+    "panels": [
+      {
+        "title": "DB Query Duration",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(db_query_duration_seconds_sum[1m]) / rate(db_query_duration_seconds_count[1m])", "legendFormat": "Avg query" }
+        ],
+        "description": "Average database query duration"
+      },
+      {
+        "title": "Active Connections",
+        "type": "stat",
+        "targets": [
+          { "expr": "pg_stat_activity_count{state='active'}" }
+        ],
+        "description": "Active PostgreSQL connections"
+      },
+      {
+        "title": "Query Count by Operation",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(db_query_duration_seconds_count[5m])", "legendFormat": "{{operation}}" }
+        ],
+        "description": "Query rate by operation type"
+      }
+    ]
+  },
+  "redis_dashboard": {
+    "title": "Redis Dashboard",
+    "description": "Redis performance and cache metrics",
+    "panels": [
+      {
+        "title": "Redis Operation Duration",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(redis_operation_duration_seconds_sum[1m]) / rate(redis_operation_duration_seconds_count[1m])", "legendFormat": "{{operation}}" }
+        ],
+        "description": "Average Redis operation duration"
+      },
+      {
+        "title": "Redis Operations Rate",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(redis_operation_duration_seconds_count[5m])", "legendFormat": "{{operation}}" }
+        ],
+        "description": "Redis operations per second"
+      }
+    ]
+  },
+  "jobs_dashboard": {
+    "title": "Background Jobs Dashboard",
+    "description": "BullMQ job processing metrics",
+    "panels": [
+      {
+        "title": "Jobs Executed Rate",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(jobs_executed_total[5m])", "legendFormat": "{{queue}}" }
+        ],
+        "description": "Jobs executed per second by queue"
+      },
+      {
+        "title": "Job Success vs Failure",
+        "type": "pie",
+        "targets": [
+          { "expr": "sum by (status) (rate(jobs_executed_total[5m]))" }
+        ],
+        "description": "Job completion status distribution"
+      }
+    ]
+  },
+  "socket_dashboard": {
+    "title": "Socket.IO Dashboard",
+    "description": "Real-time connection and event metrics",
+    "panels": [
+      {
+        "title": "Active Socket Connections",
+        "type": "stat",
+        "targets": [
+          { "expr": "socket_io_connected_users" }
+        ],
+        "description": "Currently connected WebSocket users"
+      },
+      {
+        "title": "Events per Second",
+        "type": "graph",
+        "targets": [
+          { "expr": "rate(socket_io_events_total[1m])", "legendFormat": "{{event}}" }
+        ],
+        "description": "Socket.io event rate"
+      }
+    ]
+  }
+}

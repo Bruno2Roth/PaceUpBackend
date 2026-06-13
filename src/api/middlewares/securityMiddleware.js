@@ -1,54 +1,124 @@
 import rateLimit from 'express-rate-limit';
+import logger from '../../configs/logger.js';
+import ModerationService from '../../application/services/ModerationService.js';
 
-const userRequestCounts = new Map();
+const requestCounts = new Map();
+const SUSPICIOUS_THRESHOLD = 100;
+const SUSPICIOUS_WINDOW = 10000;
+const BLOCK_DURATION = 300000;
+
+const floodRequestCounts = new Map();
 
 export const commentRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  message: { error: 'Too many comments, please slow down' },
-  keyGenerator: (req) => `comment:${req.userId}`,
+  message: 'Too many comments, please slow down',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 export const likeRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
-  message: { error: 'Too many likes, please slow down' },
-  keyGenerator: (req) => `like:${req.userId}`,
+  message: 'Too many likes, please slow down',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-export const sanitizeText = (text) => {
-  if (!text) return '';
-  return text
-    .replace(/<[^>]*>/g, '')
-    .replace(/[<>]/g, '')
-    .trim();
+export const securityMiddleware = async (req, res, next) => {
+  try {
+    const modService = new ModerationService();
+    if (req.userId) {
+      const restricted = await modService.isUserRestricted(req.userId);
+      if (restricted.restricted) {
+        const msg = restricted.reason === 'banned' ? 'Account banned' : 'Account suspended';
+        return res.status(403).json({ error: msg, details: restricted });
+      }
+    }
+  } catch {}
+
+  next();
 };
 
-export const antiFloodMiddleware = (windowMs = 5000, maxRequests = 3) => {
-  const counts = new Map();
+export const abuseDetectionMiddleware = (req, res, next) => {
+  const key = req.ip || req.connection?.remoteAddress;
+  const now = Date.now();
 
+  if (!requestCounts.has(key)) {
+    requestCounts.set(key, { count: 1, firstRequest: now, blockedUntil: 0 });
+    return next();
+  }
+
+  const record = requestCounts.get(key);
+
+  if (record.blockedUntil > now) {
+    logger.warn('Blocked abusive request', { ip: key });
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
+  }
+
+  if (now - record.firstRequest > SUSPICIOUS_WINDOW) {
+    record.count = 1;
+    record.firstRequest = now;
+    return next();
+  }
+
+  record.count++;
+
+  if (record.count > SUSPICIOUS_THRESHOLD) {
+    record.blockedUntil = now + BLOCK_DURATION;
+    logger.warn('Abuse detected, blocking IP', { ip: key, count: record.count });
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
+  }
+
+  if (requestCounts.size > 100000) {
+    const cutoff = now - 600000;
+    for (const [k, v] of requestCounts) {
+      if (v.blockedUntil < cutoff && v.firstRequest < cutoff) {
+        requestCounts.delete(k);
+      }
+    }
+  }
+
+  next();
+};
+
+export const sessionSecurityMiddleware = (req, res, next) => {
+  if (req.userId) {
+    const userAgent = req.get('user-agent') || '';
+    const ip = req.ip;
+
+    req.userSession = { userId: req.userId, role: req.userRole, ip, userAgent };
+  }
+  next();
+};
+
+export const antiFloodMiddleware = (windowMs = 2000, maxRequests = 5) => {
   return (req, res, next) => {
-    const key = `${req.userId}:${req.originalUrl}`;
+    const key = `${req.ip}:${req.path}`;
     const now = Date.now();
 
-    if (!counts.has(key)) {
-      counts.set(key, { count: 1, start: now });
+    if (!floodRequestCounts.has(key)) {
+      floodRequestCounts.set(key, { count: 1, start: now });
       return next();
     }
 
-    const entry = counts.get(key);
-    if (now - entry.start > windowMs) {
-      counts.set(key, { count: 1, start: now });
+    const record = floodRequestCounts.get(key);
+
+    if (now - record.start > windowMs) {
+      record.count = 1;
+      record.start = now;
       return next();
     }
 
-    entry.count++;
-    if (entry.count > maxRequests) {
-      return res.status(429).json({ error: 'Too many requests, please wait' });
+    record.count++;
+
+    if (record.count > maxRequests) {
+      logger.warn('Anti-flood triggered', { ip: req.ip, path: req.path });
+      return res.status(429).json({ error: 'Too many requests. Please slow down.' });
     }
 
     next();
   };
 };
 
-export default { commentRateLimit, likeRateLimit, sanitizeText, antiFloodMiddleware };
+export default { securityMiddleware, abuseDetectionMiddleware, sessionSecurityMiddleware, commentRateLimit, likeRateLimit, antiFloodMiddleware };

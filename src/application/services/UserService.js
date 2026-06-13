@@ -234,9 +234,7 @@ export class UserService {
 
   async searchUsers(query, limit = 20, offset = 0) {
     if (!query || query.trim().length === 0) {
-      const err = new Error('Search query is required');
-      err.status = 400;
-      throw err;
+      return this.userRepository.findExploreUsers(limit, offset);
     }
     return this.userRepository.searchUsers(query.trim(), limit, offset);
   }

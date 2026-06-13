@@ -43,7 +43,7 @@ export class ActivityController {
       const activities = await this.activityService.getActivities({
         requesterId: req.userId, userId, activityType, onlyMine, limit, offset,
       });
-      return res.status(200).json({ activities });
+      return res.status(200).json({ data: activities });
     } catch (error) {
       next(error);
     }
@@ -86,7 +86,7 @@ export class ActivityController {
       const cursor = req.query.cursor || null;
       const activities = await this.activityService.getFollowingActivitiesFeed(req.userId, cursor, limit);
       const nextCursor = activities.length === limit ? activities[activities.length - 1].start_time : null;
-      return res.status(200).json({ activities, next_cursor: nextCursor });
+      return res.status(200).json({ data: activities, next_cursor: nextCursor });
     } catch (error) {
       next(error);
     }

@@ -14,8 +14,8 @@ export const rateLimitMiddleware = rateLimit({
 });
 
 export const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 attempts per minute
   message: 'Too many login attempts, please try again later',
   skipSuccessfulRequests: true,
 });

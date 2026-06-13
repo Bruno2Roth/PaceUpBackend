@@ -5,11 +5,19 @@ export class RouteRepository extends BaseRepository {
     super('routes');
   }
 
-  async findPublicRoutes(limit = 20, offset = 0) {
+  async findNonDeletedById(id) {
+    const query = 'SELECT * FROM routes WHERE id = $1 AND deleted_at IS NULL';
+    const result = await this.pool.query(query, [id]);
+    return result.rows[0];
+  }
+
+  async findPublic(limit = 20, offset = 0) {
     const query = `
-      SELECT * FROM routes
-      WHERE is_public = true AND deleted_at IS NULL
-      ORDER BY activity_count DESC
+      SELECT r.*, u.name AS author_name, u.username, u.profile_picture_url AS author_avatar
+      FROM routes r
+      INNER JOIN users u ON r.user_id = u.id
+      WHERE r.is_public = TRUE AND r.deleted_at IS NULL
+      ORDER BY r.created_at DESC
       LIMIT $1 OFFSET $2
     `;
     const result = await this.pool.query(query, [limit, offset]);
@@ -27,21 +35,75 @@ export class RouteRepository extends BaseRepository {
     return result.rows;
   }
 
-  async searchRoutes(searchTerm, limit = 20, offset = 0) {
+  async findPopular(limit = 20) {
     const query = `
-      SELECT * FROM routes
-      WHERE (name ILIKE $1 OR description ILIKE $1) AND is_public = true AND deleted_at IS NULL
-      ORDER BY activity_count DESC
-      LIMIT $2 OFFSET $3
+      SELECT r.*, u.name AS author_name, u.username, u.profile_picture_url AS author_avatar
+      FROM routes r
+      INNER JOIN users u ON r.user_id = u.id
+      WHERE r.is_public = TRUE AND r.deleted_at IS NULL
+      ORDER BY r.activity_count DESC, r.created_at DESC
+      LIMIT $1
     `;
-    const result = await this.pool.query(query, [`%${searchTerm}%`, limit, offset]);
+    const result = await this.pool.query(query, [limit]);
     return result.rows;
   }
 
-  async findNonDeletedById(id) {
-    const query = 'SELECT * FROM routes WHERE id = $1 AND deleted_at IS NULL';
-    const result = await this.pool.query(query, [id]);
-    return result.rows[0];
+  async findNearby(lat, lng, radiusKm = 10, limit = 20) {
+    const query = `
+      SELECT r.*, u.name AS author_name, u.username, u.profile_picture_url AS author_avatar
+      FROM routes r
+      INNER JOIN users u ON r.user_id = u.id
+      WHERE r.is_public = TRUE
+        AND r.deleted_at IS NULL
+        AND r.gps_points IS NOT NULL
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(
+            (r.gps_points->0->>'lng')::float,
+            (r.gps_points->0->>'lat')::float
+          ), 4326)::geography,
+          $3 * 1000
+        )
+      ORDER BY r.activity_count DESC
+      LIMIT $4
+    `;
+    const result = await this.pool.query(query, [lat, lng, radiusKm, limit]);
+    return result.rows;
+  }
+
+  async findFavorites(userId, limit = 20, offset = 0) {
+    const query = `
+      SELECT * FROM routes
+      WHERE user_id = $1 AND is_favorite = TRUE AND deleted_at IS NULL
+      ORDER BY updated_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+    const result = await this.pool.query(query, [userId, limit, offset]);
+    return result.rows;
+  }
+
+  async findByDistanceRange(minDistance, maxDistance, limit = 20, offset = 0) {
+    const query = `
+      SELECT r.*, u.name AS author_name, u.username, u.profile_picture_url AS author_avatar
+      FROM routes r
+      INNER JOIN users u ON r.user_id = u.id
+      WHERE r.is_public = TRUE
+        AND r.deleted_at IS NULL
+        AND r.distance_m >= $1
+        AND r.distance_m <= $2
+      ORDER BY r.distance_m ASC
+      LIMIT $3 OFFSET $4
+    `;
+    const result = await this.pool.query(query, [minDistance, maxDistance, limit, offset]);
+    return result.rows;
+  }
+
+  async incrementActivityCount(routeId) {
+    const query = `
+      UPDATE routes SET activity_count = activity_count + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `;
+    await this.pool.query(query, [routeId]);
   }
 }
 

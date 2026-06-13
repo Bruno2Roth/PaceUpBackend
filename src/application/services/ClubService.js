@@ -65,9 +65,7 @@ export class ClubService {
 
   async searchClubs(query, limit = 20, offset = 0) {
     if (!query || query.trim().length === 0) {
-      const err = new Error('Search query is required');
-      err.status = 400;
-      throw err;
+      return this.clubRepository.findPublicClubs(limit, offset);
     }
     return this.clubRepository.searchClubs(query.trim(), limit, offset);
   }

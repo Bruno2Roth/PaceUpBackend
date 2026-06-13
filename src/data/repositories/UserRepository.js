@@ -10,6 +10,12 @@ export class UserRepository extends BaseRepository {
     return this.findOne('email = $1', [email]);
   }
 
+  async findByEmailOrUsername(identifier) {
+    const query = 'SELECT * FROM users WHERE (email = $1 OR username = $1) AND deleted_at IS NULL LIMIT 1';
+    const result = await this.pool.query(query, [identifier]);
+    return result.rows[0];
+  }
+
   async findActiveUsers(limit = 20, offset = 0) {
     const query = `
       SELECT * FROM users
@@ -41,6 +47,18 @@ export class UserRepository extends BaseRepository {
     `;
     const result = await this.pool.query(query, [userId]);
     return result.rows[0];
+  }
+
+  async findExploreUsers(limit = 20, offset = 0) {
+    const query = `
+      SELECT id, name, username, profile_picture_url, bio, city, country
+      FROM users
+      WHERE deleted_at IS NULL
+      ORDER BY name ASC
+      LIMIT $1 OFFSET $2
+    `;
+    const result = await this.pool.query(query, [limit, offset]);
+    return result.rows;
   }
 
   async searchUsers(searchTerm, limit = 20, offset = 0) {

@@ -38,7 +38,8 @@ export class ClubController {
     try {
       const limit = parseInt(req.query.limit, 10) || 20;
       const offset = parseInt(req.query.offset, 10) || 0;
-      const clubs = await this.clubService.searchClubs(req.query.q, limit, offset);
+      const query = req.query.q || req.query.query || req.query.name || req.query.search;
+      const clubs = await this.clubService.searchClubs(query, limit, offset);
       return res.status(200).json({ clubs });
     } catch (error) {
       next(error);

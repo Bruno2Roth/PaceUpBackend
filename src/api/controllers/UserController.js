@@ -67,7 +67,8 @@ export class UserController {
     try {
       const limit = parseInt(req.query.limit, 10) || 20;
       const offset = parseInt(req.query.offset, 10) || 0;
-      const users = await this.userService.searchUsers(req.query.q, limit, offset);
+      const query = req.query.q || req.query.query || req.query.name || req.query.search;
+      const users = await this.userService.searchUsers(query, limit, offset);
       return res.status(200).json({ users });
     } catch (error) {
       next(error);

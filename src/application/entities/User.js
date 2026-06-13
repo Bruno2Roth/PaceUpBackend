@@ -4,6 +4,7 @@ export class User {
     email,
     password,
     name,
+    username,
     bio,
     profilePictureUrl,
     dateOfBirth,
@@ -26,6 +27,7 @@ export class User {
     this.email = email;
     this.password = password;
     this.name = name;
+    this.username = username;
     this.bio = bio;
     this.profilePictureUrl = profilePictureUrl;
     this.dateOfBirth = dateOfBirth;

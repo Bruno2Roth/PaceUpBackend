@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import UserService from '../src/application/services/UserService.js';
 import ActivityService from '../src/application/services/ActivityService.js';
 import NotificationService from '../src/application/services/NotificationService.js';

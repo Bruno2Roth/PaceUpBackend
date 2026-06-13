@@ -11,29 +11,38 @@ class RedisCache {
       return this.client;
     }
 
-    this.client = createClient({
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password,
-      db: config.redis.db,
-      socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 50, 500),
-      },
-    });
+    try {
+      this.client = createClient({
+        host: config.redis.host,
+        port: config.redis.port,
+        password: config.redis.password,
+        db: config.redis.db,
+        socket: {
+          reconnectStrategy: (retries) => {
+            if (retries > 3) {
+              return false;
+            }
+            return Math.min(retries * 200, 1000);
+          },
+        },
+      });
 
-    this.client.on('error', (err) => {
-      console.error('Redis Client Error', err);
-    });
+      this.client.on('error', () => {});
 
-    this.client.on('connect', () => {
-      console.log('Redis connected');
-    });
+      this.client.on('connect', () => {
+        console.log('Redis connected');
+      });
 
-    await this.client.connect();
+      await this.client.connect();
+    } catch (error) {
+      console.warn('Redis not available, caching disabled');
+      this.client = null;
+    }
     return this.client;
   }
 
   async get(key) {
+    if (!this.client) return null;
     try {
       const value = await this.client.get(key);
       return value ? JSON.parse(value) : null;
@@ -44,6 +53,7 @@ class RedisCache {
   }
 
   async set(key, value, expiration = null) {
+    if (!this.client) return false;
     try {
       const serialized = JSON.stringify(value);
       if (expiration) {
@@ -59,6 +69,7 @@ class RedisCache {
   }
 
   async delete(key) {
+    if (!this.client) return false;
     try {
       await this.client.del(key);
       return true;
@@ -69,6 +80,7 @@ class RedisCache {
   }
 
   async clear() {
+    if (!this.client) return false;
     try {
       await this.client.flushDb();
       return true;
