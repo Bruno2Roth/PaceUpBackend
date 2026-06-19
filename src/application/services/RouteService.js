@@ -32,7 +32,11 @@ export class RouteService {
   }
 
   async getRoutes(userId, query = {}) {
-    const { public: isPublic, limit = 20, offset = 0 } = query;
+    const { public: isPublic, limit = 20, offset = 0, q, city, difficulty } = query;
+
+    if (q || city || difficulty) {
+      return this.routeRepository.searchRoutes({ q, city, difficulty, limit, offset });
+    }
 
     if (isPublic) {
       return this.routeRepository.findPublic(limit, offset);

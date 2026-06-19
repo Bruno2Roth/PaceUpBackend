@@ -13,7 +13,7 @@ class DatabasePool {
       return this.pool;
     }
 
-    this.pool = new Pool({
+    const poolConfig = {
       host: config.db.host,
       port: config.db.port,
       database: config.db.database,
@@ -23,7 +23,13 @@ class DatabasePool {
       min: config.db.poolMin,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
-    });
+    };
+
+    if (config.db.host !== 'localhost' && config.db.host !== '127.0.0.1') {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+
+    this.pool = new Pool(poolConfig);
 
     this.pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);

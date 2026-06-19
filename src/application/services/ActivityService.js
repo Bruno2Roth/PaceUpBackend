@@ -46,8 +46,8 @@ export class ActivityService {
       }
     }
 
-    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
-    await redis.delete(feedKey);
+    await redis.delete(`${FEED_CACHE_PREFIX}${userId}:page1`);
+    await redis.delete(`${FEED_CACHE_PREFIX}global:page1`);
 
     return { activity, achievements };
   }
@@ -70,8 +70,8 @@ export class ActivityService {
       await this.xpService.awardXp(userId, 'activity_completed', { activityId: created[0].id });
     }
 
-    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
-    await redis.delete(feedKey);
+    await redis.delete(`${FEED_CACHE_PREFIX}${userId}:page1`);
+    await redis.delete(`${FEED_CACHE_PREFIX}global:page1`);
 
     return created;
   }
@@ -228,6 +228,22 @@ export class ActivityService {
     return this.activityRepository.softDelete(activityId);
   }
 
+  async getGlobalFeed(cursor = null, limit = 20) {
+    const cacheKey = cursor ? null : `${FEED_CACHE_PREFIX}global:page1`;
+    if (cacheKey) {
+      const cached = await redis.get(cacheKey);
+      if (cached) return cached;
+    }
+
+    const activities = await this.activityRepository.getGlobalFeedWithCounts(cursor, limit);
+
+    if (cacheKey && activities.length > 0) {
+      await redis.set(cacheKey, activities, FEED_CACHE_TTL);
+    }
+
+    return activities;
+  }
+
   async getFollowingActivitiesFeed(userId, cursor = null, limit = 20) {
     if (!userId) {
       const err = new Error('Authentication required');
@@ -279,8 +295,8 @@ export class ActivityService {
 
     await this.notificationService.notifyLike(activity.user_id, activityId, userId);
 
-    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
-    await redis.delete(feedKey);
+    await redis.delete(`${FEED_CACHE_PREFIX}${userId}:page1`);
+    await redis.delete(`${FEED_CACHE_PREFIX}global:page1`);
 
     return { like, like_count: likeCount };
   }
@@ -303,8 +319,8 @@ export class ActivityService {
     await this.likeRepository.deleteLike(activityId, userId);
     const likeCount = await this.likeRepository.countByActivityId(activityId);
 
-    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
-    await redis.delete(feedKey);
+    await redis.delete(`${FEED_CACHE_PREFIX}${userId}:page1`);
+    await redis.delete(`${FEED_CACHE_PREFIX}global:page1`);
 
     return { like_count: likeCount };
   }
@@ -359,8 +375,8 @@ export class ActivityService {
 
     await this.notificationService.notifyComment(activity.user_id, activityId, userId, comment.id);
 
-    const feedKey = `${FEED_CACHE_PREFIX}${userId}`;
-    await redis.delete(feedKey);
+    await redis.delete(`${FEED_CACHE_PREFIX}${userId}:page1`);
+    await redis.delete(`${FEED_CACHE_PREFIX}global:page1`);
 
     return { comment, comment_count: commentCount };
   }

@@ -10,6 +10,10 @@ export class UserRepository extends BaseRepository {
     return this.findOne('email = $1', [email]);
   }
 
+  async findByGoogleId(googleId) {
+    return this.findOne('google_id = $1', [googleId]);
+  }
+
   async findByEmailOrUsername(identifier) {
     const query = 'SELECT * FROM users WHERE (email = $1 OR username = $1) AND deleted_at IS NULL LIMIT 1';
     const result = await this.pool.query(query, [identifier]);

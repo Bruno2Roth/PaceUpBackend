@@ -66,9 +66,25 @@ const start = async () => {
       logger.warn('Socket.IO Redis adapter not available (single instance mode)');
     }
 
-    server.listen(config.port, () => {
-      logger.info(`Pace Up API listening on port ${config.port}`);
+    const tryListen = (port) => {
+      server.listen(port, () => {
+        config.port = port;
+        logger.info(`Pace Up API listening on port ${port}`);
+      });
+    };
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.warn(`Port ${config.port} in use, trying ${config.port + 1}...`);
+        config.port++;
+        tryListen(config.port);
+        return;
+      }
+      logger.fatal('Server error', err);
+      process.exit(1);
     });
+
+    tryListen(config.port);
 
     const backupService = new BackupService();
     const BACKUP_INTERVAL = 24 * 60 * 60 * 1000;

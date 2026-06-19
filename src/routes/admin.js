@@ -2,12 +2,12 @@ import { Router } from 'express';
 import authMiddleware from '../api/middlewares/authMiddleware.js';
 import adminMiddleware from '../api/middlewares/adminMiddleware.js';
 import AdminController from '../api/controllers/AdminController.js';
-import AdminCommercialController from '../api/controllers/AdminCommercialController.js';
+// import AdminCommercialController from '../api/controllers/AdminCommercialController.js';
 import { authRateLimit } from '../api/middlewares/rateLimitMiddleware.js';
 
 const router = Router();
 const controller = new AdminController();
-const commercialController = new AdminCommercialController();
+// const commercialController = new AdminCommercialController();
 
 router.use(authMiddleware);
 router.use(adminMiddleware);
@@ -39,15 +39,15 @@ router.post('/moderation/users/:id/suspend', controller.suspendUser.bind(control
 router.post('/moderation/users/:id/unban', controller.unbanUser.bind(controller));
 router.post('/moderation/users/:id/unsuspend', controller.unsuspendUser.bind(controller));
 
-router.get('/subscriptions', commercialController.getSubscriptions.bind(commercialController));
-router.get('/revenue', commercialController.getRevenue.bind(commercialController));
-router.get('/conversions', commercialController.getConversions.bind(commercialController));
-router.get('/churn', commercialController.getChurn.bind(commercialController));
-router.get('/analytics', commercialController.getAnalytics.bind(commercialController));
-router.get('/revenue-metrics', commercialController.getRevenueMetrics.bind(commercialController));
-router.get('/coupons', commercialController.getCoupons.bind(commercialController));
-router.post('/retention/run', commercialController.runRetention.bind(commercialController));
-router.post('/winback/run', commercialController.runWinback.bind(commercialController));
+// router.get('/subscriptions', commercialController.getSubscriptions.bind(commercialController));
+// router.get('/revenue', commercialController.getRevenue.bind(commercialController));
+// router.get('/conversions', commercialController.getConversions.bind(commercialController));
+// router.get('/churn', commercialController.getChurn.bind(commercialController));
+// router.get('/analytics', commercialController.getAnalytics.bind(commercialController));
+// router.get('/revenue-metrics', commercialController.getRevenueMetrics.bind(commercialController));
+// router.get('/coupons', commercialController.getCoupons.bind(commercialController));
+// router.post('/retention/run', commercialController.runRetention.bind(commercialController));
+// router.post('/winback/run', commercialController.runWinback.bind(commercialController));
 
 router.get('/badges', controller.listSpecialBadges.bind(controller));
 router.post('/badges', controller.createSpecialBadge.bind(controller));

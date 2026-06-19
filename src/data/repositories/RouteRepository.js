@@ -98,6 +98,45 @@ export class RouteRepository extends BaseRepository {
     return result.rows;
   }
 
+  async searchRoutes({ q, city, difficulty, limit = 20, offset = 0 }) {
+    const conditions = ['r.is_public = TRUE', 'r.deleted_at IS NULL'];
+    const params = [];
+    let paramIndex = 1;
+
+    if (q && q.trim()) {
+      conditions.push(`(r.name ILIKE $${paramIndex} OR r.description ILIKE $${paramIndex} OR r.city ILIKE $${paramIndex})`);
+      params.push(`%${q.trim()}%`);
+      paramIndex++;
+    }
+
+    if (city && city.trim()) {
+      conditions.push(`r.city ILIKE $${paramIndex}`);
+      params.push(`%${city.trim()}%`);
+      paramIndex++;
+    }
+
+    if (difficulty) {
+      conditions.push(`r.difficulty_level = $${paramIndex}`);
+      params.push(difficulty);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.join(' AND ');
+    params.push(limit, offset);
+
+    const query = `
+      SELECT r.*, u.name AS author_name, u.username, u.profile_picture_url AS author_avatar
+      FROM routes r
+      INNER JOIN users u ON r.user_id = u.id
+      WHERE ${whereClause}
+      ORDER BY r.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const result = await this.pool.query(query, params);
+    return result.rows;
+  }
+
   async incrementActivityCount(routeId) {
     const query = `
       UPDATE routes SET activity_count = activity_count + 1, updated_at = CURRENT_TIMESTAMP

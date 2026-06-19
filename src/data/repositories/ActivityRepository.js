@@ -170,6 +170,40 @@ export class ActivityRepository extends BaseRepository {
     return result.rows.map((r) => r.activity_date);
   }
 
+  async getGlobalFeedWithCounts(cursor = null, limit = 20) {
+    const query = cursor
+      ? `
+        SELECT a.*, u.name AS author_name, u.profile_picture_url AS author_avatar,
+          COALESCE(l.like_count, 0)::int AS likes_count,
+          COALESCE(c.comment_count, 0)::int AS comments_count
+        FROM activities a
+        INNER JOIN users u ON a.user_id = u.id
+        LEFT JOIN (SELECT activity_id, COUNT(*)::int AS like_count FROM likes GROUP BY activity_id) l ON l.activity_id = a.id
+        LEFT JOIN (SELECT activity_id, COUNT(*)::int AS comment_count FROM comments WHERE deleted_at IS NULL AND parent_id IS NULL GROUP BY activity_id) c ON c.activity_id = a.id
+        WHERE a.is_private = false
+          AND a.deleted_at IS NULL
+          AND a.start_time < $1
+        ORDER BY a.start_time DESC
+        LIMIT $2
+      `
+      : `
+        SELECT a.*, u.name AS author_name, u.profile_picture_url AS author_avatar,
+          COALESCE(l.like_count, 0)::int AS likes_count,
+          COALESCE(c.comment_count, 0)::int AS comments_count
+        FROM activities a
+        INNER JOIN users u ON a.user_id = u.id
+        LEFT JOIN (SELECT activity_id, COUNT(*)::int AS like_count FROM likes GROUP BY activity_id) l ON l.activity_id = a.id
+        LEFT JOIN (SELECT activity_id, COUNT(*)::int AS comment_count FROM comments WHERE deleted_at IS NULL AND parent_id IS NULL GROUP BY activity_id) c ON c.activity_id = a.id
+        WHERE a.is_private = false
+          AND a.deleted_at IS NULL
+        ORDER BY a.start_time DESC
+        LIMIT $1
+      `;
+    const params = cursor ? [cursor, limit] : [limit];
+    const result = await this.pool.query(query, params);
+    return result.rows;
+  }
+
   async getFeedWithCounts(userId, cursor = null, limit = 20) {
     const query = cursor
       ? `

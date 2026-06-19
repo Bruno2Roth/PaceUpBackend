@@ -68,6 +68,11 @@ export const config = {
     token: process.env.MAPBOX_TOKEN,
   },
 
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  },
+
   garmin: {
     apiUrl: process.env.GARMIN_API_URL || 'https://connectapi.garmin.com',
     clientId: process.env.GARMIN_CLIENT_ID,
@@ -125,27 +130,27 @@ export const config = {
     retentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS, 10) || 30,
   },
 
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY,
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    premiumMonthlyPriceId: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
-    premiumYearlyPriceId: process.env.STRIPE_PREMIUM_YEARLY_PRICE_ID,
-    coachPlusPriceId: process.env.STRIPE_COACH_PLUS_PRICE_ID,
-  },
+  // stripe: {
+  //   secretKey: process.env.STRIPE_SECRET_KEY,
+  //   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  //   premiumMonthlyPriceId: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
+  //   premiumYearlyPriceId: process.env.STRIPE_PREMIUM_YEARLY_PRICE_ID,
+  //   coachPlusPriceId: process.env.STRIPE_COACH_PLUS_PRICE_ID,
+  // },
 
-  mercadopago: {
-    accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
-    publicKey: process.env.MERCADOPAGO_PUBLIC_KEY,
-  },
+  // mercadopago: {
+  //   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
+  //   publicKey: process.env.MERCADOPAGO_PUBLIC_KEY,
+  // },
 
   app: {
     url: process.env.APP_URL || 'https://paceup.app',
     supportEmail: process.env.SUPPORT_EMAIL || 'support@paceup.com',
   },
 
-  trial: {
-    defaultDurationDays: parseInt(process.env.TRIAL_DEFAULT_DAYS, 10) || 7,
-  },
+  // trial: {
+  //   defaultDurationDays: parseInt(process.env.TRIAL_DEFAULT_DAYS, 10) || 7,
+  // },
 
   cors: {
     origin: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(','),

@@ -1,4 +1,6 @@
 import { validationResult } from 'express-validator';
+import jwt from 'jsonwebtoken';
+import config from '../../configs/environment.js';
 import ActivityService from '../../application/services/ActivityService.js';
 
 export class ActivityController {
@@ -80,11 +82,35 @@ export class ActivityController {
     }
   }
 
-  async getFollowingActivitiesFeed(req, res, next) {
+  async getFeed(req, res, next) {
     try {
       const limit = parseInt(req.query.limit, 10) || 20;
       const cursor = req.query.cursor || null;
-      const activities = await this.activityService.getFollowingActivitiesFeed(req.userId, cursor, limit);
+      const type = req.query.type || 'global';
+
+      let userId = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        try {
+          const token = authHeader.split(' ')[1];
+          if (token) {
+            const decoded = jwt.verify(token, config.jwt.secret);
+            userId = decoded.userId;
+          }
+        } catch {
+        }
+      }
+
+      if (type === 'following') {
+        if (!userId) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        const activities = await this.activityService.getFollowingActivitiesFeed(userId, cursor, limit);
+        const nextCursor = activities.length === limit ? activities[activities.length - 1].start_time : null;
+        return res.status(200).json({ data: activities, next_cursor: nextCursor });
+      }
+
+      const activities = await this.activityService.getGlobalFeed(cursor, limit);
       const nextCursor = activities.length === limit ? activities[activities.length - 1].start_time : null;
       return res.status(200).json({ data: activities, next_cursor: nextCursor });
     } catch (error) {

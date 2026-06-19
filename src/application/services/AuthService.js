@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import config from '../../configs/environment.js';
 import UserRepository from '../../data/repositories/UserRepository.js';
 import VerificationTokenRepository from '../../data/repositories/VerificationTokenRepository.js';
@@ -100,6 +101,78 @@ export class AuthService {
 
     delete user.password;
     return { user, ...tokens };
+  }
+
+  async googleLogin(idToken, ip, userAgent) {
+    if (!config.google.clientId || config.google.clientId === 'your_google_client_id') {
+      const err = new Error('Google login not configured');
+      err.status = 501;
+      throw err;
+    }
+
+    let payload;
+    try {
+      const client = new OAuth2Client(config.google.clientId);
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: config.google.clientId,
+      });
+      payload = ticket.getPayload();
+    } catch (error) {
+      logger.error('Google token verification failed:', error.message);
+      const err = new Error('Invalid Google token');
+      err.status = 401;
+      throw err;
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+
+    if (!email) {
+      const err = new Error('Google account has no email');
+      err.status = 400;
+      throw err;
+    }
+
+    let user = await this.userRepository.findByGoogleId(googleId);
+
+    if (!user) {
+      user = await this.userRepository.findByEmail(email);
+
+      if (user) {
+        await this.userRepository.update(user.id, {
+          google_id: googleId,
+          profile_picture_url: user.profile_picture_url || picture,
+          email_verified_at: user.email_verified_at || new Date(),
+        });
+      } else {
+        const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
+        let username = baseUsername;
+        let counter = 1;
+        while (await this.userRepository.findOne('username = $1', [username])) {
+          username = `${baseUsername}${counter}`;
+          counter++;
+        }
+
+        user = await this.userRepository.create({
+          email,
+          password: null,
+          name: name || baseUsername,
+          username,
+          profile_picture_url: picture,
+          google_id: googleId,
+          is_active: true,
+          is_verified: true,
+          email_verified_at: new Date(),
+        });
+      }
+    }
+
+    const tokens = this._generateTokens(user);
+    await this.userRepository.updateLastLogin(user.id);
+    this.auditService.logLogin(user.id, ip, userAgent).catch(() => {});
+
+    delete user.password;
+    return { user, ...tokens, isNewUser: !user.google_id };
   }
 
   async refreshToken(token) {

@@ -12,7 +12,7 @@ router.post('/', authMiddleware, activityValidation, controller.createActivity.b
 router.post('/import', authMiddleware, activityImportValidation, controller.importActivities.bind(controller));
 router.post('/sync', authMiddleware, activityImportValidation, controller.importActivities.bind(controller));
 router.get('/', controller.getActivities.bind(controller));
-router.get('/feed', authMiddleware, controller.getFollowingActivitiesFeed.bind(controller));
+router.get('/feed', controller.getFeed.bind(controller));
 router.get('/:id', controller.getActivity.bind(controller));
 router.put('/:id', authMiddleware, controller.updateActivity.bind(controller));
 router.delete('/:id', authMiddleware, controller.deleteActivity.bind(controller));

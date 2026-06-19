@@ -34,6 +34,19 @@ export class AuthController {
     }
   }
 
+  async googleLogin(req, res, next) {
+    try {
+      const { idToken } = req.body;
+      if (!idToken) {
+        return res.status(400).json({ error: 'idToken required' });
+      }
+      const result = await this.authService.googleLogin(idToken, req.ip, req.get('user-agent'));
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(error.status || 500).json({ error: error.message });
+    }
+  }
+
   async refreshToken(req, res, next) {
     try {
       const { refreshToken } = req.body;
